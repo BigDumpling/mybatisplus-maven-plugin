@@ -25,7 +25,15 @@ public enum NamingStrategy {
     /**
      * 去掉前缀并且转驼峰
      */
-    remove_prefix_and_camel;
+    remove_prefix_and_camel,
+    /**
+     * 去掉第一个下划线之前内容，后面原样输出
+     */
+    remove_underline,
+    /**
+     * 去掉第一个下划线之前内容，后面转驼峰
+     */
+    remove_underline_and_camel;
 
     public static String underlineToCamel(String name) {
         // 快速检查
@@ -54,12 +62,12 @@ public enum NamingStrategy {
     }
 
     /**
-     * 去掉下划线前缀
+     * 去掉第一个下划线之前内容，后面原样输出
      *
      * @param name
      * @return
      */
-    public static String removePrefix(String name) {
+    public static String removeUnderline(String name) {
         if (StringUtils.isBlank(name)) {
             return "";
         }
@@ -68,6 +76,16 @@ public enum NamingStrategy {
             return name;
         }
         return name.substring(idx + 1);
+    }
+
+    /**
+     * 去掉第一个下划线之前内容，后面转驼峰
+     *
+     * @param name
+     * @return
+     */
+    public static String removeUnderlineAndCamel(String name) {
+        return underlineToCamel(removeUnderline(name));
     }
     
     /**

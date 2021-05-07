@@ -77,6 +77,12 @@ public abstract class AbstractGenerateMojo extends AbstractMojo {
 	@Parameter(defaultValue = "true")
 	private boolean activeRecord;
 
+	/**
+	 * 开启 ActiveRecord 模式
+	 */
+	@Parameter(defaultValue = "false")
+	private boolean enableSwagger;
+
 	protected ConfigBuilder config;
 
 	/**
@@ -115,6 +121,10 @@ public abstract class AbstractGenerateMojo extends AbstractMojo {
 
 	public boolean isActiveRecord() {
 		return activeRecord;
+	}
+
+	public boolean isEnableSwagger() {
+		return enableSwagger;
 	}
 
 }

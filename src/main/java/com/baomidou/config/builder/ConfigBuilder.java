@@ -1,30 +1,20 @@
 package com.baomidou.config.builder;
 
-import java.io.File;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.apache.commons.lang.StringUtils;
-
-import com.baomidou.config.ConstVal;
-import com.baomidou.config.DataSourceConfig;
-import com.baomidou.config.PackageConfig;
-import com.baomidou.config.StrategyConfig;
-import com.baomidou.config.TemplateConfig;
+import com.baomidou.config.*;
 import com.baomidou.config.po.TableField;
 import com.baomidou.config.po.TableInfo;
 import com.baomidou.config.rules.DbType;
 import com.baomidou.config.rules.IdStrategy;
 import com.baomidou.config.rules.NamingStrategy;
 import com.baomidou.config.rules.QuerySQL;
+import org.apache.commons.lang.StringUtils;
+
+import java.io.File;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
 
 /**
  * 配置汇总 传递给文件生成工具
@@ -178,7 +168,7 @@ public class ConfigBuilder {
 		packageInfo.put(ConstVal.MODULENAME, config.getModuleName());
 		packageInfo.put(ConstVal.ENTITY, joinPackage(config.getParent(), config.getEntity()));
 		packageInfo.put(ConstVal.MAPPER, joinPackage(config.getParent(), config.getMapper()));
-		packageInfo.put(ConstVal.XML, joinPackage(config.getParent(), config.getXml()));
+		packageInfo.put(ConstVal.XML, joinPackage("", config.getXml()));
 		packageInfo.put(ConstVal.SERIVCE, joinPackage(config.getParent(), config.getService()));
 		packageInfo.put(ConstVal.SERVICEIMPL, joinPackage(config.getParent(), config.getServiceImpl()));
 		packageInfo.put(ConstVal.CONTROLLER, joinPackage(config.getParent(), config.getController()));
@@ -186,7 +176,7 @@ public class ConfigBuilder {
 		pathInfo = new HashMap<String, String>();
 		pathInfo.put(ConstVal.ENTITY_PATH, joinPath(outputDir, packageInfo.get(ConstVal.ENTITY)));
 		pathInfo.put(ConstVal.MAPPER_PATH, joinPath(outputDir, packageInfo.get(ConstVal.MAPPER)));
-		pathInfo.put(ConstVal.XML_PATH, joinPath(outputDir, packageInfo.get(ConstVal.XML)));
+		pathInfo.put(ConstVal.XML_PATH, packageInfo.get(ConstVal.XML));
 		pathInfo.put(ConstVal.SERIVCE_PATH, joinPath(outputDir, packageInfo.get(ConstVal.SERIVCE)));
 		pathInfo.put(ConstVal.SERVICEIMPL_PATH, joinPath(outputDir, packageInfo.get(ConstVal.SERVICEIMPL)));
 		pathInfo.put(ConstVal.CONTROLLER_PATH, joinPath(outputDir, packageInfo.get(ConstVal.CONTROLLER)));
@@ -244,8 +234,12 @@ public class ConfigBuilder {
 			idType = IdStrategy.auto.getValue();
 		} else if (config.getIdGenType() == IdStrategy.input) {
 			idType = IdStrategy.input.getValue();
-		} else if (config.getIdGenType() == IdStrategy.uuid) {
-			idType = IdStrategy.uuid.getValue();
+		} else if (config.getIdGenType() == IdStrategy.none) {
+			idType = IdStrategy.none.getValue();
+		} else if (config.getIdGenType() == IdStrategy.assign_id) {
+			idType = IdStrategy.assign_id.getValue();
+		}else if (config.getIdGenType() == IdStrategy.assign_uuid) {
+			idType = IdStrategy.assign_uuid.getValue();
 		} else {
 			idType = IdStrategy.id_worker.getValue();
 		}
@@ -281,43 +275,37 @@ public class ConfigBuilder {
 	private List<TableInfo> getTablesInfo(StrategyConfig config) {
 		boolean isInclude = (null != config.getInclude() && config.getInclude().length > 0);
 		boolean isExclude = (null != config.getExclude() && config.getExclude().length > 0);
-		if (isInclude && isExclude) {
-			throw new RuntimeException("<strategy> 标签中 <include> 与 <exclude> 只能配置一项！");
-		}
+		List<String> includes = Arrays.asList(Optional.ofNullable(config.getInclude()).orElse(new String[0]));
+		List<String> excludes = Arrays.asList(Optional.ofNullable(config.getExclude()).orElse(new String[0]));
 		List<TableInfo> tableList = new ArrayList<TableInfo>();
-		Set<String> notExistTables = new HashSet<String>();
 		NamingStrategy strategy = config.getNaming();
 		NamingStrategy fieldStrategy = config.getFieldNaming();
+		String tablePrefix = config.getTablePrefix();
 		PreparedStatement pstate = null;
 		try {
 			pstate = connection.prepareStatement(querySQL.getTableCommentsSql());
 			ResultSet results = pstate.executeQuery();
 			while (results.next()) {
 				String tableName = results.getString(querySQL.getTableName());
+				if (tablePrefix != null && !tableName.toUpperCase().startsWith(tablePrefix.toUpperCase())) {
+					continue;
+				}
 				if (StringUtils.isNotBlank(tableName)) {
 					String tableComment = results.getString(querySQL.getTableComment());
 					TableInfo tableInfo = new TableInfo();
 					if (isInclude) {
-						for (String includeTab : config.getInclude()) {
-							if (includeTab.equalsIgnoreCase(tableName)) {
-								tableInfo.setName(tableName);
-								tableInfo.setComment(tableComment);
-							} else {
-								notExistTables.add(includeTab);
-							}
-						}
-					} else if (isExclude) {
-						for (String excludeTab : config.getExclude()) {
-							if (!excludeTab.equalsIgnoreCase(tableName)) {
-								tableInfo.setName(tableName);
-								tableInfo.setComment(tableComment);
-							} else {
-								notExistTables.add(excludeTab);
-							}
+						if (includes.contains(tableName)) {
+							tableInfo.setName(tableName);
+							tableInfo.setComment(tableComment);
 						}
 					} else {
 						tableInfo.setName(tableName);
 						tableInfo.setComment(tableComment);
+					}
+					if (isExclude) {
+						if (excludes.contains(tableName)) {
+							continue;
+						}
 					}
 					if (StringUtils.isNotBlank(tableInfo.getName())) {
 						List<TableField> fieldList = getListFields(tableInfo.getName(), fieldStrategy);
@@ -327,13 +315,6 @@ public class ConfigBuilder {
 				} else {
 					System.err.println("当前数据库为空！！！");
 				}
-			}
-			// 将已经存在的表移除
-			for (TableInfo tabInfo : tableList) {
-				notExistTables.remove(tabInfo.getName());
-			}
-			if (notExistTables.size() > 0) {
-				System.err.println("表 " + notExistTables + " 在数据库中不存在！！！");
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -461,14 +442,24 @@ public class ConfigBuilder {
 	 */
 	private String processName(String name, NamingStrategy strategy, String tablePrefix) {
 		String propertyName = "";
-		if (strategy == NamingStrategy.remove_prefix_and_camel) {
-			propertyName = NamingStrategy.removePrefixAndCamel(name, tablePrefix);
-		} else if (strategy == NamingStrategy.underline_to_camel) {
-			propertyName = NamingStrategy.underlineToCamel(name);
-		} else if (strategy == NamingStrategy.remove_prefix) {
-			propertyName = NamingStrategy.removePrefix(name, tablePrefix);
-		} else {
-			propertyName = name;
+		switch (strategy) {
+			case remove_prefix_and_camel:
+				propertyName = NamingStrategy.removePrefixAndCamel(name, tablePrefix);
+				break;
+			case underline_to_camel:
+				propertyName = NamingStrategy.underlineToCamel(name);
+				break;
+			case remove_prefix:
+				propertyName = NamingStrategy.removePrefix(name, tablePrefix);
+				break;
+			case remove_underline:
+				propertyName = NamingStrategy.removeUnderline(name);
+				break;
+			case remove_underline_and_camel:
+				propertyName = NamingStrategy.removeUnderlineAndCamel(name);
+				break;
+			default:
+				propertyName = name;
 		}
 		return propertyName;
 	}

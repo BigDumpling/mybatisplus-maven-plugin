@@ -1,17 +1,11 @@
 package com.baomidou;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
+import com.baomidou.config.ConstVal;
+import com.baomidou.config.TemplateConfig;
+import com.baomidou.config.builder.ConfigBuilder;
+import com.baomidou.config.po.TableField;
+import com.baomidou.config.po.TableInfo;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -21,10 +15,10 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.Velocity;
 import org.apache.velocity.app.VelocityEngine;
 
-import com.baomidou.config.ConstVal;
-import com.baomidou.config.TemplateConfig;
-import com.baomidou.config.builder.ConfigBuilder;
-import com.baomidou.config.po.TableInfo;
+import java.io.*;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 生成文件
@@ -45,6 +39,7 @@ public class GenerateMojo extends AbstractGenerateMojo {
 	 */
 	private Map<String, String> outputFiles;
 
+	@Override
 	public void execute() throws MojoExecutionException, MojoFailureException {
 		log.info("==========================准备生成文件...==========================");
 		// 初始化配置
@@ -89,7 +84,7 @@ public class GenerateMojo extends AbstractGenerateMojo {
 	private Map<String, VelocityContext> analyzeData(ConfigBuilder config) {
 		List<TableInfo> tableList = config.getTableInfoList();
 		Map<String, String> packageInfo = config.getPackageInfo();
-		Map<String, VelocityContext> ctxData = new HashMap<String, VelocityContext>();
+		Map<String, VelocityContext> ctxData = new HashMap<>();
 		String superEntityClass = getSuperClassName(config.getSuperEntityClass());
 		String superMapperClass = getSuperClassName(config.getSuperMapperClass());
 		String superServiceClass = getSuperClassName(config.getSuperServiceClass());
@@ -99,10 +94,19 @@ public class GenerateMojo extends AbstractGenerateMojo {
 
 		for (TableInfo tableInfo : tableList) {
 			VelocityContext ctx = new VelocityContext();
+			List<TableField> tableFields = tableInfo.getFields().stream()
+					.filter(tableField -> "BigDecimal".equalsIgnoreCase(tableField.getPropertyType()))
+					.collect(Collectors.toList());
+			if (CollectionUtils.isNotEmpty(tableFields)) {
+				ctx.put("havBigDecimal", true);
+			} else {
+				ctx.put("havBigDecimal", false);
+			}
+
 			ctx.put("package", packageInfo);
 			ctx.put("table", tableInfo);
 			ctx.put("entity", tableInfo.getEntityName());
-			ctx.put("addTabeName", !tableInfo.getEntityName().toLowerCase().equals(tableInfo.getName().toLowerCase()));
+			ctx.put("addTabeName", !tableInfo.getEntityName().equalsIgnoreCase(tableInfo.getName()));
 			ctx.put("idGenType", config.getIdType());
 			ctx.put("superEntityClassPackage", config.getSuperEntityClass());
 			ctx.put("superEntityClass", superEntityClass);
@@ -117,6 +121,7 @@ public class GenerateMojo extends AbstractGenerateMojo {
 			ctx.put("enableCache", isEnableCache());
 			ctx.put("author", getAuthor());
 			ctx.put("activeRecord", isActiveRecord());
+			ctx.put("enableSwagger", isEnableSwagger());
 			ctx.put("date", date);
 			ctxData.put(tableInfo.getEntityName(), ctx);
 		}
@@ -130,8 +135,9 @@ public class GenerateMojo extends AbstractGenerateMojo {
 	 * @return
 	 */
 	private String getSuperClassName(String classPath) {
-		if (StringUtils.isBlank(classPath))
+		if (StringUtils.isBlank(classPath)) {
 			return null;
+		}
 		return classPath.substring(classPath.lastIndexOf(".") + 1);
 	}
 

@@ -58,8 +58,9 @@ public class PackageConfig {
     private String controller;
 
     public String getParent() {
-    	if(moduleName != null && !"".equals(moduleName.trim()))
-    		return parent + "." + moduleName;
+    	if(moduleName != null && !"".equals(moduleName.trim())) {
+            return parent + "." + moduleName;
+        }
         return parent;
     }
     
@@ -88,7 +89,9 @@ public class PackageConfig {
     }
     
     public String getController() {
-    	if(StringUtils.isBlank(controller)) return "web";
+    	if(StringUtils.isBlank(controller)) {
+            return "web";
+        }
     	return controller;
     }
 }

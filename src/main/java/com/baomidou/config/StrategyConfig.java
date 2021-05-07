@@ -19,6 +19,7 @@ public class StrategyConfig {
 	@Parameter(defaultValue = "nochange")
 	private NamingStrategy naming;
 
+	@Parameter(defaultValue = "underline_to_camel")
 	private NamingStrategy fieldNaming;
 
 	/**
@@ -80,8 +81,9 @@ public class StrategyConfig {
 	}
 
 	public NamingStrategy getFieldNaming() {
-		if (fieldNaming == null)
-			return naming;
+		if (fieldNaming == null) {
+            return naming;
+        }
 		return fieldNaming;
 	}
 

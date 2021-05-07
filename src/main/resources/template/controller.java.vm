@@ -1,6 +1,10 @@
 package ${package.Controller};
 
-import org.springframework.stereotype.Controller;
+#if(${enableSwagger})
+<!--添加Swagger注解-->
+import io.swagger.annotations.Api;
+#end
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 /**
@@ -11,7 +15,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * @author ${author}
  * @since ${date}
  */
-@Controller
+#if(${enableSwagger})
+<!--添加Swagger注解-->
+@Api(tags = "${table.comment}")
+#end
+@RestController
 @RequestMapping("#if(${package.ModuleName})/${package.ModuleName}#end/${table.entityName.toLowerCase()}")
 public class ${table.controllerName} {
 	
